@@ -1,0 +1,34 @@
+# Byte-compiled files
+__pycache__/
+
+# Distribution and packaging
+dist/
+build/
+*.egg-info/
+*.egg
+*.pyz
+*.pyc
+
+# Test and coverage reports
+*.coverage
+*.coverage.*
+coverage.xml
+*.cover
+
+# Environment variables
+*.env
+*.ini
+
+# Virtual environment
+venv/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Downloads
+drivers/
+fasta/
+iedb/
