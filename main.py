@@ -2,6 +2,11 @@ from src import *
 
 if __name__ == '__main__':
     # TODO: Add logic to download antigen epitope data files from iedb
+    iedb_scraper = initialize_scraper()
+
+    get_epitope_data_file(iedb_scraper, organism='Influenza A Virus', antigen='Hemagglutinin', host=Host_Options.Human, disease=Disease_Options.Infectious)
+
+    raise
     for file in os.listdir(epitope_data_dir):
         if not file.endswith(".json"):
             continue
