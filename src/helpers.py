@@ -1,7 +1,8 @@
+import inspect
 import os
 from requests import get, Response
 from time import sleep
-import logging
+from typing import List, Union
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -13,9 +14,7 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import StaleElementReferenceException
-import inspect
-from typing import Union
-
+from selenium.webdriver.support.ui import Select
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.driver_cache import DriverCacheManager
 
@@ -64,7 +63,7 @@ def generate_fasta_files(accession: str) -> None:
         f.write(sequence)
 
 
-def initialize_scraper(headless: bool = False, install_latest_driver: bool = False) -> webdriver.Chrome:
+def initialize_scraper(headless: bool = False) -> webdriver.Chrome:
     ''''''
     options: webdriver.ChromeOptions = Options()
 
@@ -74,34 +73,22 @@ def initialize_scraper(headless: bool = False, install_latest_driver: bool = Fal
     else:
         options.add_argument('start-maximized')
 
-    options.add_experimental_option(
-        'prefs',
-        {
-            'download.default_directory': epitope_data_dir
-        }
-    )
-
-    web_drivers_dir_content = os.listdir(web_drivers_dir)
-    service: Service
+    options.add_experimental_option('prefs', { 'download.default_directory': epitope_data_dir })
 
     try:
-        if len(web_drivers_dir_content) == 0 or install_latest_driver == True:
-            service = Service(ChromeDriverManager().install())
-        else:
-            cache_manager = DriverCacheManager(web_drivers_dir)
-            service = Service(ChromeDriverManager(cache_manager=cache_manager).install())
+        cache_manager = DriverCacheManager(web_drivers_dir)
+        service = Service(ChromeDriverManager(cache_manager=cache_manager).install())
     except:
         raise Exception('Issue applying chrome driver binaries')
 
-
     try:
-        driver = webdriver.Chrome(service=service)
+        driver = webdriver.Chrome(service=service, options=options)
     except:
         raise Exception('Scraper failed to initialize')
 
     return driver
 
-def get_epitope_data_file(driver: webdriver.Chrome, organism: str = None, antigen: str = None, host: Union[str, int] = None, disease: Union[str, int] = None, **kwargs):
+def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str, host: Union[str, int] = None, disease: Union[str, int] = None, **kwargs):
     ''''''
     # get optional input props (used as querying params on the iedb website)
     frame = inspect.currentframe()
@@ -120,36 +107,35 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str = None, antige
             raise Exception(f"Field for '{key}' property not found")
         
         try:
-            value_div.find_element(By.TAG_NAME, "input").send_keys(value)
+            Ui_input_autocomplete_div = value_div.find_element(By.CLASS_NAME, "autocomplete")
 
-            options = WebDriverWait(value_div, 3).until(
+            Ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value)
+
+            options = WebDriverWait(Ui_input_autocomplete_div, 3).until(
                 ec.presence_of_all_elements_located((By.CLASS_NAME, 'option_entry'))
             )
 
-            print(555 ,options)
-
+            # get top 3 options
             for idx, opt in enumerate(options[:3]):
-                print(idx, opt)
                 try:
                     WebDriverWait(driver, 3).until(
                         ec.element_to_be_clickable(opt)
                     ).click()
                 except StaleElementReferenceException:
                     print("Input options element hidden after selection. Re-fetching options.")
-                    value_div.find_element(By.TAG_NAME, "input").click()
-                    # value_div.find_element(By.TAG_NAME, "input").send_keys(value.lower())
-                    # # Re-fetch options and try to click the element again if possible
-                    # options = WebDriverWait(value_div, 3).until(
-                    #     ec.presence_of_all_elements_located((By.CLASS_NAME, 'option_entry'))
-                    # )
-                    # print(idx, len(options))
-                    # if idx < len(options):
-                    #     opt = options[idx]
-                    #     WebDriverWait(driver, 3).until(
-                    #         ec.element_to_be_clickable(opt)
-                    #     ).click()
-                    # else:
-                    #     print(f"Index {idx} is out of range after re-fetching options.")
+                    Ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value.lower())
+
+                    options = WebDriverWait(Ui_input_autocomplete_div, 3).until(
+                        ec.presence_of_all_elements_located((By.CLASS_NAME, 'option_entry'))
+                    )
+                    
+                    if idx < len(options):
+                        opt = options[idx]
+                        WebDriverWait(Ui_input_autocomplete_div, 3).until(
+                            ec.element_to_be_clickable(opt)
+                        ).click()
+                    else:
+                        print(f"Index {idx} is out of range after re-fetching options.")
         except:
             ''''''
             logging.info("Input box not found. Performing alternative workflow")
@@ -170,6 +156,30 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str = None, antige
     
     driver.find_element(By.CLASS_NAME, 'submitbutton').click()
 
-    sleep(20)
+    # wait for results page to load
+    WebDriverWait(driver, 5).until(
+        ec.presence_of_element_located((By.CLASS_NAME, 'exportholder'))
+    ).click()
+
+    export_file_popup = driver.find_element(By.CLASS_NAME, 'inwindow_popup_content')
+
+    # find select tag element
+    select_element = WebDriverWait(export_file_popup, 3).until(
+        ec.presence_of_element_located((By.XPATH, '//select[@style="float: left; margin-right: 5px;"]'))
+    )
+
+    select = Select(select_element)
+
+    # select file format option from download popup modal
+    select.select_by_value('json')
+
+    WebDriverWait(export_file_popup, 6).until(
+        ec.visibility_of_element_located((By.XPATH, '//button[@style="margin-left: 5px; margin-top: 5px;"]'))
+    ).click()
+
+    # wait while file downloads
+    sleep(5)
+
+    driver.quit()
 
     

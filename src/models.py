@@ -1,9 +1,8 @@
-import json
+import logging
 import os
-import re
-import requests
 
-project_path: str = os.getcwd()
+
+project_path: str = os.getenv('PROJECT_PATH') if os.getenv('PROJECT_PATH') else os.getcwd()
 antigen_epitopes_url: str = 'https://www.iedb.org/result_v3.php'
 fasta_source_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
@@ -26,7 +25,7 @@ host_options = {
     2: "Human",
     3: "Mouse",
     4: "Non-human primate",
-    5: None
+    5: "specified"
 }
 
 class Host_Options:
