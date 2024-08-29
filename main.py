@@ -19,32 +19,34 @@ if __name__ == '__main__':
 
         get_epitope_data_file(iedb_scraper, organism=organism, antigen=antigen, host=host, disease=disease)
 
-        epitope_data_files = os.listdir(epitope_data_dir)
+        epitope_data_files = glob.glob(os.path.join(epitope_data_dir, 'epitope_table_export*.zip'))
 
         if len(epitope_data_files) == 0:
             raise Exception('No files in download directory')
 
         download_files_path: List[str] = []
         for file in epitope_data_files:
-            if file.startswith('epitope_table_export') and file.endswith('zip'):
-                file_download_epoch = file.split('_')[-1].split('.')[0]
-                file_download_epoch = dt.fromtimestamp(int(file.split('_')[-1].split('.')[0]), UTC)
-                is_recent_download = (dt.now(UTC) - file_download_epoch) < td(seconds=30)
+            file_download_epoch = file.split('_')[-1].split('.')[0]
+            file_download_epoch = dt.fromtimestamp(int(file.split('_')[-1].split('.')[0]), UTC)
+            is_recent_download = (dt.now(UTC) - file_download_epoch) < td(seconds=30)
 
-                if is_recent_download:
-                    zip_file_path = os.path.join(epitope_data_dir, file)
-                    with ZipFile(zip_file_path) as z:
-                        z.extractall(epitope_data_dir)
-                    
-                    json_file_path = zip_file_path.replace('.zip', '')
-                    new_download_file_name = os.path.join(epitope_data_dir, f'{ideb_radio_buttons_options["host"][host] if isinstance(host, int) else host.capitalize()}_{organism.lower().replace(" ", "_")}_{antigen.lower().replace(" ", "_")}_{dt.strftime(file_download_epoch, "%Y-%m-%d")}.json')
-                    os.rename(json_file_path, new_download_file_name)
-                    os.remove(zip_file_path)
-                    download_files_path.append(new_download_file_name)
+            if is_recent_download:
+                zip_file_path = os.path.join(epitope_data_dir, file)
+                with ZipFile(zip_file_path) as z:
+                    z.extractall(epitope_data_dir)
+                
+                json_file_path = zip_file_path.replace('.zip', '')
+                new_download_file_name = os.path.join(epitope_data_dir, f'{ideb_radio_buttons_options["host"][host].lower() if isinstance(host, int) else host.lower()}_{organism.lower().replace(" ", "_")}_{antigen.lower().replace(" ", "_")}_{dt.strftime(file_download_epoch, "%Y-%m-%d")}_epitopes.json')
+                os.rename(json_file_path, new_download_file_name)
+                os.remove(zip_file_path)
+                download_files_path.append(new_download_file_name)
 
+        print(epitope_data_files)
+        print(download_files_path)
         if len(download_files_path) > 0:
             for file in download_files_path:
-                if not file.endswith(".json"):
+                print(file)
+                if not file.endswith(".json") or not os.path.split(file)[-1].startswith(ideb_radio_buttons_options["host"][host].lower() if isinstance(host, int) else host.lower()):
                     continue
 
                 with open(os.path.join(epitope_data_dir, file), 'r') as f:
