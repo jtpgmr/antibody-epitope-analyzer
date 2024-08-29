@@ -2,10 +2,10 @@ import logging
 import os
 
 set_env = os.getenv('ENV')
-env = set_env if set_env is not None else 'PROD'
+env = set_env if set_env else 'PROD'
 
 get_project_path = os.getenv('PROJECT_PATH')
-project_path: str = get_project_path if get_project_path is not None else os.getcwd()
+project_path: str = get_project_path if get_project_path else os.getcwd()
 display_all_logs = os.getenv('DISPLAY_ALL_LOGS')
 
 tmp_dir = os.path.join(project_path, 'tmp')
@@ -36,7 +36,7 @@ else:
         datefmt='%Y-%m-%dT%H:%M:%S',
     )
 
-if display_all_logs is None or display_all_logs.lower() == 'false':
+if not display_all_logs or display_all_logs.lower() == 'false':
     logging.getLogger('WDM').setLevel(logging.WARNING) 
     logging.getLogger('selenium.webdriver').setLevel(logging.WARNING) 
     logging.getLogger('urllib3').setLevel(logging.WARNING)

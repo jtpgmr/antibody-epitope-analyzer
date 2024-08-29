@@ -49,7 +49,7 @@ def generate_fasta_files(accession: str) -> None:
         if response.status_code == 429:
             logger.warning(f'Max api call rate exceeded. Retrying file generation for epitope primary accession "{accession}"')
             # if api rate limit reached, wait a few seconds before retrying
-            sleep(7.5)
+            sleep(3)
             response = get(**request_props)
         else:
             logger.warning(f"Error: {response.status_code} - {response.text}")
