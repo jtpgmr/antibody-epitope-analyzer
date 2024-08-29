@@ -28,7 +28,11 @@ venv/
 # VS Code
 .vscode/
 
+# Logs
+/.logs
+
 # Downloads
+tmp/
 drivers/
 fasta/
 iedb/

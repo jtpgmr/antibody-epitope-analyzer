@@ -4,7 +4,7 @@ version = "0.0.3"
 authors = [
     {name="Jose Luis Cruz, Jr.", email="jtpgmr@gmail.com" }
 ]
-description = "Project that downloads epitope data from IEDB, for a given antigen, downloads the fasta sequence files and analyzes conserved sequences."
+description = "Project that downloads epitope data from IEDB, for a given antigen, generates .fasta files containing the amino acid sequences and detects conserved regions."
 readme = "README.md"
 license = { file="LICENSE" }
 requires-python = ">=3.9"

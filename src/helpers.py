@@ -23,7 +23,7 @@ from src.models import *
 def get_antigen_uniprot_id(antigen_name: str) -> str:
     ''''''
 
-def construct_fasta_request_props(primary_accession: str) -> dict:
+def construct_fasta_request_props(primary_accession: str) -> dict[str]:
     """
         Construct request to NCBI website, to retrive fasta data for a given `primary_accession`
 
@@ -50,10 +50,10 @@ def generate_fasta_files(accession: str) -> None:
     if response.status_code != 200:
         if response.status_code == 429:
             # if api rate limit reached, wait a few seconds before retrying
-            sleep(7.5)
+            sleep(5)
             response = get(**request_props)
         else:
-            print(f"Error: {response.status_code} - {response.text}")
+            logger.warning(f"Error: {response.status_code} - {response.text}")
             raise 
     
     sequence = response.text.split('\n')[1:]
@@ -69,7 +69,7 @@ def initialize_scraper(headless: bool = False) -> webdriver.Chrome:
 
     if headless:
         options.add_argument('--headless')
-        logging.debug('Web Scraping Headless')
+        logger.debug('Web Scraping Headless')
     else:
         options.add_argument('start-maximized')
 
@@ -102,43 +102,43 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
             search_field_header_div = driver.find_element(By.XPATH, f"//div[contains(text(), '{key.capitalize()}')]")
 
             # get the next div after the header, as it contains the input/checkbox fields
-            value_div = search_field_header_div.find_element(By.XPATH, "following-sibling::div[1]")
+            input_div = search_field_header_div.find_element(By.XPATH, "following-sibling::div[1]")
         except NoSuchElementException:
             raise Exception(f"Field for '{key}' property not found")
         
         try:
-            Ui_input_autocomplete_div = value_div.find_element(By.CLASS_NAME, "autocomplete")
+            ui_input_autocomplete_div = input_div.find_element(By.CLASS_NAME, "autocomplete")
 
-            Ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value)
+            ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value)
 
-            options = WebDriverWait(Ui_input_autocomplete_div, 3).until(
+            options = WebDriverWait(ui_input_autocomplete_div, 2).until(
                 ec.presence_of_all_elements_located((By.CLASS_NAME, 'option_entry'))
             )
 
             # get top 3 options
             for idx, opt in enumerate(options[:3]):
                 try:
-                    WebDriverWait(driver, 3).until(
+                    WebDriverWait(driver, 2).until(
                         ec.element_to_be_clickable(opt)
                     ).click()
                 except StaleElementReferenceException:
-                    print("Input options element hidden after selection. Re-fetching options.")
-                    Ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value.lower())
+                    logger.info("Input options element hidden after selection. Re-fetching options.")
+                    ui_input_autocomplete_div.find_element(By.TAG_NAME, "input").send_keys(value.lower())
 
-                    options = WebDriverWait(Ui_input_autocomplete_div, 3).until(
+                    options = WebDriverWait(ui_input_autocomplete_div, 2).until(
                         ec.presence_of_all_elements_located((By.CLASS_NAME, 'option_entry'))
                     )
                     
                     if idx < len(options):
                         opt = options[idx]
-                        WebDriverWait(Ui_input_autocomplete_div, 3).until(
+                        WebDriverWait(ui_input_autocomplete_div, 2).until(
                             ec.element_to_be_clickable(opt)
                         ).click()
                     else:
-                        print(f"Index {idx} is out of range after re-fetching options.")
+                        logger.info(f"Index {idx} is out of range after re-fetching options.")
         except:
             ''''''
-            logging.info("Input box not found. Performing alternative workflow")
+            logger.info(f'Input box not found for "{key}". Performing alternative workflow')
 
             search_field_header_div = driver.find_element(By.CLASS_NAME, f'{key}_search_box')
             search_field_value_select_area = search_field_header_div.find_element(By.CLASS_NAME, 'search_content')
@@ -156,15 +156,17 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
     
     driver.find_element(By.CLASS_NAME, 'submitbutton').click()
 
+    results_section_div = driver.find_element(By.CLASS_NAME, 'table_container')
+
     # wait for results page to load
-    WebDriverWait(driver, 5).until(
+    WebDriverWait(results_section_div, 3).until(
         ec.presence_of_element_located((By.CLASS_NAME, 'exportholder'))
     ).click()
 
     export_file_popup = driver.find_element(By.CLASS_NAME, 'inwindow_popup_content')
 
     # find select tag element
-    select_element = WebDriverWait(export_file_popup, 3).until(
+    select_element = WebDriverWait(export_file_popup, 2).until(
         ec.presence_of_element_located((By.XPATH, '//select[@style="float: left; margin-right: 5px;"]'))
     )
 
@@ -173,9 +175,7 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
     # select file format option from download popup modal
     select.select_by_value('json')
 
-    WebDriverWait(export_file_popup, 6).until(
-        ec.visibility_of_element_located((By.XPATH, '//button[@style="margin-left: 5px; margin-top: 5px;"]'))
-    ).click()
+    export_file_popup.find_element(By.XPATH, '//button[@style="margin-left: 5px; margin-top: 5px;"]').click()
 
     # wait while file downloads
     sleep(5)
