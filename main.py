@@ -9,16 +9,15 @@ from src import *
 # testing vars
 organism='Influenza A Virus'
 antigen='Hemagglutinin'
-host = Host_Options.Human
+host: Union[str|int] = IEDBRadioButtonOptions.HostOptions.Human
+disease: Union[str|int] = IEDBRadioButtonOptions.DiseaseOptions.Infectious
 
 if __name__ == '__main__':
-    # logger = logging.getLogger('my_project')
-    # logger.info('here')
     skip = False
     if not skip:
         iedb_scraper = initialize_scraper()
 
-        get_epitope_data_file(iedb_scraper, organism=organism, antigen=antigen, host=host, disease=Disease_Options.Infectious)
+        get_epitope_data_file(iedb_scraper, organism=organism, antigen=antigen, host=host, disease=disease)
 
         epitope_data_files = os.listdir(epitope_data_dir)
 
@@ -38,7 +37,7 @@ if __name__ == '__main__':
                         z.extractall(epitope_data_dir)
                     
                     json_file_path = zip_file_path.replace('.zip', '')
-                    new_download_file_name = os.path.join(epitope_data_dir, f'{host_options[host].lower()}_{organism.lower().replace(" ", "_")}_{antigen.lower().replace(" ", "_")}_{dt.strftime(file_download_epoch, "%Y-%m-%d")}.json')
+                    new_download_file_name = os.path.join(epitope_data_dir, f'{ideb_radio_buttons_options["host"][host] if isinstance(host, int) else host.capitalize()}_{organism.lower().replace(" ", "_")}_{antigen.lower().replace(" ", "_")}_{dt.strftime(file_download_epoch, "%Y-%m-%d")}.json')
                     os.rename(json_file_path, new_download_file_name)
                     os.remove(zip_file_path)
                     download_files_path.append(new_download_file_name)

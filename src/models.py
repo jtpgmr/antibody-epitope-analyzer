@@ -37,6 +37,7 @@ else:
     )
 
 if display_all_logs is None or display_all_logs.lower() == 'false':
+    logging.getLogger('WDM').setLevel(logging.WARNING) 
     logging.getLogger('selenium.webdriver').setLevel(logging.WARNING) 
     logging.getLogger('urllib3').setLevel(logging.WARNING)
 
@@ -62,38 +63,41 @@ if not os.path.exists(web_drivers_dir):
     os.mkdir(web_drivers_dir)
 
 
-host_options = {
-    1: "Any",
-    2: "Human",
-    3: "Mouse",
-    4: "Non-human primate",
-    5: "specified"
+ideb_radio_buttons_options = {
+    "host": {
+        1: "Any",
+        2: "Human",
+        3: "Mouse",
+        4: "Non-human primate",
+        5: "specified"
+    },
+    "disease": {
+        1: "Any",
+        2: "Infectious",
+        3: "Allergic",
+        4: "Autoimmune",
+        5: "Transplant",
+        6: "Cancer",
+        7: "None (Healthy)",
+        8: None
+    }
 }
 
-class Host_Options:
-    Any = 1
-    Human = 2
-    Mouse = 3
-    Non_human_primate = 4
-    N_a = 5
+class IEDBRadioButtonOptions:
+    class HostOptions:
+        Any = 1
+        Human = 2
+        Mouse = 3
+        Non_human_primate = 4
+        N_a = 5
 
-disease_options = {
-    1: "Any",
-    2: "Infectious",
-    3: "Allergic",
-    4: "Autoimmune",
-    5: "Transplant",
-    6: "Cancer",
-    7: "None (Healthy)",
-    8: None
-}
-
-class Disease_Options:
-    Any = 1
-    Infectious = 2
-    Allergic = 3
-    Autoimmune = 4
-    Transplant = 5
-    Cancer = 6
-    Healthy = 7
-    N_a = 8
+    class DiseaseOptions:
+        Any = 1
+        Infectious = 2
+        Allergic = 3
+        Autoimmune = 4
+        Transplant = 5
+        Cancer = 6
+        Healthy = 7
+        N_a = 8
+    

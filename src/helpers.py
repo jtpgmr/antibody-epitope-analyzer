@@ -20,9 +20,6 @@ from webdriver_manager.core.driver_cache import DriverCacheManager
 
 from src.models import *
 
-def get_antigen_uniprot_id(antigen_name: str) -> str:
-    ''''''
-
 def construct_fasta_request_props(primary_accession: str) -> dict[str]:
     """
         Construct request to NCBI website, to retrive fasta data for a given `primary_accession`
@@ -44,13 +41,15 @@ def construct_fasta_request_props(primary_accession: str) -> dict[str]:
     }
 
 def generate_fasta_files(accession: str) -> None:
+    logger.info(f'Generating fasta file for epitope primary accession "{accession}"')
     request_props = construct_fasta_request_props(accession)
     response: Response = get(**request_props)
             
     if response.status_code != 200:
         if response.status_code == 429:
+            logger.warning(f'Max api call rate exceeded. Retrying file generation for epitope primary accession "{accession}"')
             # if api rate limit reached, wait a few seconds before retrying
-            sleep(5)
+            sleep(7.5)
             response = get(**request_props)
         else:
             logger.warning(f"Error: {response.status_code} - {response.text}")
@@ -97,6 +96,9 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
 
     driver.get(antigen_epitopes_url)
 
+    # allow page to fully load
+    sleep(2.5)
+
     for key, value in input_props.items():
         try:
             search_field_header_div = driver.find_element(By.XPATH, f"//div[contains(text(), '{key.capitalize()}')]")
@@ -138,19 +140,20 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
                         logger.info(f"Index {idx} is out of range after re-fetching options.")
         except:
             ''''''
-            logger.info(f'Input box not found for "{key}". Performing alternative workflow')
+            logger.info(f'Input box not found for "{key}". Performing alternative workflow.')
 
             search_field_header_div = driver.find_element(By.CLASS_NAME, f'{key}_search_box')
             search_field_value_select_area = search_field_header_div.find_element(By.CLASS_NAME, 'search_content')
 
-            if key == 'host':
-                ''''''
-                search_field_value_field = search_field_value_select_area.find_element(By.CLASS_NAME, 'title').find_element(By.XPATH, f"//div[contains(text(), '{host_options[value]}')]").find_element(By.XPATH, "preceding-sibling::div[1]")
-            elif key == 'disease':
-                ''''''
-                search_field_value_field = search_field_value_select_area.find_element(By.CLASS_NAME, 'title').find_element(By.XPATH, f"//div[contains(text(), '{disease_options[value]}')]").find_element(By.XPATH, "preceding-sibling::div[1]")
-            else:
+            try:
+                radio_btn_value = ideb_radio_buttons_options[key]
+            except KeyError:
                 raise Exception(f'Key not found: {key}')
+
+            if key == 'host':
+                search_field_value_field = search_field_value_select_area.find_element(By.CLASS_NAME, 'title').find_element(By.XPATH, f"//div[contains(text(), '{radio_btn_value[value] if isinstance(value, int) else value.capitalize()}')]").find_element(By.XPATH, "preceding-sibling::div[1]")
+            elif key == 'disease':
+                search_field_value_field = search_field_value_select_area.find_element(By.CLASS_NAME, 'title').find_element(By.XPATH, f"//div[contains(text(), '{radio_btn_value[value] if isinstance(value, int) else value.capitalize()}')]").find_element(By.XPATH, "preceding-sibling::div[1]")
 
             search_field_value_field.click()
     
@@ -159,7 +162,7 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
     results_section_div = driver.find_element(By.CLASS_NAME, 'table_container')
 
     # wait for results page to load
-    WebDriverWait(results_section_div, 3).until(
+    WebDriverWait(results_section_div, 7.5).until(
         ec.presence_of_element_located((By.CLASS_NAME, 'exportholder'))
     ).click()
 
@@ -175,6 +178,7 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
     # select file format option from download popup modal
     select.select_by_value('json')
 
+    logger.info(f"Downloading IEDB epitope export json file for {antigen} ({organism})...")
     export_file_popup.find_element(By.XPATH, '//button[@style="margin-left: 5px; margin-top: 5px;"]').click()
 
     # wait while file downloads
