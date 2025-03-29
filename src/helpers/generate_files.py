@@ -1,66 +1,16 @@
-import inspect
-import os
-from requests import get, Response
-from time import sleep
-from typing import List, Union
-
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.support import expected_conditions as ec
-from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support.ui import Select
+
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.driver_cache import DriverCacheManager
 
 from src.models import *
-
-def construct_fasta_request_props(primary_accession: str) -> dict[str]:
-    """
-        Construct request to NCBI website, to retrive fasta data for a given `primary_accession`
-
-        :param primary_accession: the main, unique identifier assigned to a biological sequence or record in a database, generated from experimentally-derived data
-        :return: request params for the `requests` library
-    """
-
-    params = {
-        "db": "protein",
-        "id": primary_accession,
-        "rettype": "fasta",
-        "retmode": "text"
-    }
-
-    return {
-        "url": fasta_source_url,
-        "params": params
-    }
-
-def generate_fasta_files(accession: str) -> None:
-    logger.info(f'Generating fasta file for epitope primary accession "{accession}"')
-    request_props = construct_fasta_request_props(accession)
-    response: Response = get(**request_props)
-            
-    if response.status_code != 200:
-        if response.status_code == 429:
-            logger.warning(f'Max api call rate exceeded. Retrying file generation for epitope primary accession "{accession}"')
-            # if api rate limit reached, wait a few seconds before retrying
-            sleep(3)
-            response = get(**request_props)
-        else:
-            logger.warning(f"Error: {response.status_code} - {response.text}")
-            raise 
-    
-    sequence = response.text.split('\n')[1:]
-    sequence = '\n'.join(sequence)
-
-    with open(os.path.join(fasta_files_dir, f"{accession}.fasta"), 'w') as f:
-        f.write(sequence)
-
 
 def initialize_scraper(headless: bool = False) -> webdriver.Chrome:
     ''''''
@@ -87,7 +37,8 @@ def initialize_scraper(headless: bool = False) -> webdriver.Chrome:
 
     return driver
 
-def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str, host: Union[str, int] = None, disease: Union[str, int] = None, **kwargs):
+
+def scrape_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str, host: Union[str, int] = None, disease: Union[str, int] = None, **kwargs):
     ''''''
     # get optional input props (used as querying params on the iedb website)
     frame = inspect.currentframe()
@@ -186,4 +137,66 @@ def get_epitope_data_file(driver: webdriver.Chrome, organism: str, antigen: str,
 
     driver.quit()
 
-    
+
+def construct_fasta_request_props(primary_accession: str) -> dict[str]:
+    '''
+        Construct request to NCBI website, to retrive fasta data for a given `primary_accession`
+
+        :param primary_accession: the main, unique identifier assigned to a biological sequence or record in a database, generated from experimentally-derived data
+        :return: request params for the `requests` library
+    '''
+
+    params = {
+        "db": "protein",
+        "id": primary_accession,
+        "rettype": "fasta",
+        "retmode": "text"
+    }
+
+    return {
+        "url": fasta_source_url,
+        "params": params
+    }
+
+
+def call_ncbi_fasta_endpoint(url: str, accession: str) -> Response:
+    ''''''
+    request_props = {
+        "url": url,
+        "params": {
+            "db": "protein",
+            "id": accession,
+            "rettype": "fasta",
+            "retmode": "text"
+        }
+    }
+
+    response: Response = get(**request_props)
+
+    return response
+
+
+def scrape_fasta_data(fasta_url: str, accession: str) -> str:
+    logger.info(f'Generating fasta file for epitope primary accession "{accession}"')
+
+    response = call_ncbi_fasta_endpoint(fasta_url, accession)
+
+    if response.status_code != 200:
+        if response.status_code == 429:
+            logger.warning(f'Max api call rate exceeded. Retrying file generation for epitope primary accession "{accession}"')
+            # if api rate limit reached, wait a few seconds before retrying
+            sleep(3)
+            response = call_ncbi_fasta_endpoint(fasta_url, accession)
+        else:
+            logger.warning(f"Error: {response.status_code} - {response.text}")
+            raise 
+
+    sequence = response.text
+    fasta_file_path = os.path.join(scraped_fasta_files_dir, f"{accession}.fasta")
+    with open(fasta_file_path, 'w') as f:
+        f.write(sequence)
+
+    return fasta_file_path
+
+
+
